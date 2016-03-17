@@ -140,7 +140,7 @@ func (a *KafkaAvroAdapter) formatMessage(message *router.Message) (*sarama.Produ
 	record.Set("line", message.Data)
 
 	var b []byte
-	b, err = a.registry.Encode(record)
+	b, err := a.registry.Encode(record)
 	if err != nil {
 		return nil, err
 	}
