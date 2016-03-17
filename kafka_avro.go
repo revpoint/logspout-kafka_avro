@@ -11,6 +11,7 @@ import (
 	avro "github.com/elodina/go-avro"
 	kafkaavro "github.com/elodina/go-kafka-avro"
 	"github.com/gliderlabs/logspout/router"
+	"gopkg.in/Shopify/sarama.v1"
 )
 
 var messageSchema = `{
