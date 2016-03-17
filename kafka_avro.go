@@ -1,7 +1,6 @@
 package kafka_avro
 
 import (
-	"bytes"
 	"fmt"
 	"log"
 	"os"
@@ -12,7 +11,6 @@ import (
 	avro "github.com/elodina/go-avro"
 	kafkaavro "github.com/elodina/go-kafka-avro"
 	"github.com/gliderlabs/logspout/router"
-	"gopkg.in/Shopify/sarama.v1"
 )
 
 var messageSchema = `{
@@ -31,11 +29,11 @@ func init() {
 }
 
 type KafkaAvroAdapter struct {
-	route       *router.Route
-	brokers     []string
-	topic       string
-	registry    *kafkaavro.KafkaAvroEncoder
-	producer    *sarama.AsyncProducer
+	route    *router.Route
+	brokers  []string
+	topic    string
+	registry *kafkaavro.KafkaAvroEncoder
+	producer *sarama.AsyncProducer
 }
 
 func NewKafkaAvroAdapter(route *router.Route) (router.LogAdapter, error) {
@@ -56,10 +54,10 @@ func NewKafkaAvroAdapter(route *router.Route) (router.LogAdapter, error) {
 
 	registry := kafkaavro.NewKafkaAvroEncoder(schemaUrl)
 
-  schema, err := avro.ParseSchema(messageSchema)
-  if err != nil {
-    return nil, errorf("The schema could not be parsed")
-  }
+	schema, err := avro.ParseSchema(messageSchema)
+	if err != nil {
+		return nil, errorf("The schema could not be parsed")
+	}
 
 	if os.Getenv("DEBUG") != "" {
 		log.Printf("Starting Kafka producer for address: %s, topic: %s.\n", brokers, topic)
@@ -86,12 +84,12 @@ func NewKafkaAvroAdapter(route *router.Route) (router.LogAdapter, error) {
 	}
 
 	return &KafkaAvroAdapter{
-		route:     route,
-		brokers:   brokers,
-		topic:     topic,
-    registry:  registry,
-    writer:    writer,
-		producer:  producer,
+		route:    route,
+		brokers:  brokers,
+		topic:    topic,
+		registry: registry,
+		writer:   writer,
+		producer: producer,
 	}, nil
 }
 
@@ -132,18 +130,19 @@ func newConfig() *sarama.Config {
 func (a *KafkaAvroAdapter) formatMessage(message *router.Message) (*sarama.ProducerMessage, error) {
 	var encoder sarama.Encoder
 
-  record := avro.NewGenericRecord(messageSchema)
-  record.Set("timestamp", message.Time)
-  record.Set("container_name", message.Container.Name)
-  record.Set("source", message.Source)
-  record.Set("line", message.Data)
+	record := avro.NewGenericRecord(messageSchema)
+	record.Set("timestamp", message.Time)
+	record.Set("container_name", message.Container.Name)
+	record.Set("source", message.Source)
+	record.Set("line", message.Data)
 
-  var b []byte, err = a.registry.Encode(record)
-  if err != nil {
-    return nil, err
-  }
+	var b []byte
+	b, err = a.registry.Encode(record)
+	if err != nil {
+		return nil, err
+	}
 
-  encoder = sarama.ByteEncoder(b)
+	encoder = sarama.ByteEncoder(b)
 
 	return &sarama.ProducerMessage{
 		Topic: a.topic,
