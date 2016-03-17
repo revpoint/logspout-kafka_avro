@@ -21,31 +21,6 @@ curl http://container-host:8000/routes -d '{
 }'
 ```
 
-## message template configuration
-
-The default behavior is to route the raw message to Kafka.  This adapter provides a mechanism for customizing the template to include additional metadata via the `KAFKA_TEMPLATE` environment variable.  Golang's [text/template](http://golang.org/pkg/text/template/) package is used for templating, where the model available for templating is the [Message struct](https://github.com/gliderlabs/logspout/blob/master/router/types.go).
-
-The following example `KAFKA_TEMPLATE` configuration appends additional metadata to each log message received:
-```
-KAFKA_TEMPLATE="{\"timestamp\": \"{{.Time}}\", \"container_name\": \"{{.Container.Name}}\", \"source\": \"{{.Source}}\", \"line\": \"{{.Data}}\"}"
-```
-
-Example input and output
-```
-Hello World
-
-{"timestamp": "2015-06-23 09:54:55.241951004 +0000 UTC", "container_name": "/hello_container", "source": "stdout", "line": "Hello World"}
-```
-
-## avro schema configuration
-
-The default behavior is to a primitive string schema (`{"type" : "%s" }`).  This adapter provides a mechanism for customizing the Avro schema via the `KAFKA_AVRO_SCHEMA` environment variable. This schema should match the `KAFKA_TEMPLATE` if you set `KAFKA_AVRO_SCHEMA`.
-
-The following example `KAFKA_AVRO_SCHEMA` configuration matches the template above:
-```
-KAFKA_AVRO_SCHEMA="{\"type\":\"record\",\"name\":\"logLine\",\"fields\":[{\"name\":\"timestamp\",\"type\":\"string\"},{\"name\":\"container_name\",\"type\":\"string\"},{\"name\":\"source\",\"type\":\"string\"},{\"name\":\"line\",\"type\":\"string\"}]}"
-```
-
 ## route configuration
 
 If you've mounted a volume to `/mnt/routes`, then consider pre-populating your routes. The following script configures a route to send standard messages from a "cat" container to one Kafka topic, and a route to send standard/error messages from a "dog" container to another topic.

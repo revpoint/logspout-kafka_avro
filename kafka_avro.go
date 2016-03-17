@@ -7,7 +7,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"text/template"
 	"time"
 
 	avro "github.com/elodina/go-avro"
@@ -15,6 +14,17 @@ import (
 	"github.com/gliderlabs/logspout/router"
 	"gopkg.in/Shopify/sarama.v1"
 )
+
+var messageSchema = `{
+  "type": "record",
+  "name": "LogLine",
+  "fields": [
+    {"name": "timestamp", "type": "string"},
+    {"name": "container_name", "type": "string"},
+    {"name": "source", "type": "string"},
+    {"name": "line", "type": "string"}
+  ]
+}`
 
 func init() {
 	router.AdapterFactories.Register(NewKafkaAvroAdapter, "kafka_avro")
@@ -24,10 +34,8 @@ type KafkaAvroAdapter struct {
 	route       *router.Route
 	brokers     []string
 	topic       string
-	schema_url  string
-	registry    kafkaavro.KafkaAvroEncoder
-	producer    sarama.AsyncProducer
-	tmpl        *template.Template
+	registry    *kafkaavro.KafkaAvroEncoder
+	producer    *sarama.AsyncProducer
 }
 
 func NewKafkaAvroAdapter(route *router.Route) (router.LogAdapter, error) {
@@ -45,27 +53,13 @@ func NewKafkaAvroAdapter(route *router.Route) (router.LogAdapter, error) {
 	if schemaUrl == "" {
 		return nil, errorf("The schema registry url is missing. Did you specify it as a route option?")
 	}
+
 	registry := kafkaavro.NewKafkaAvroEncoder(schemaUrl)
 
-	var err error
-	var tmpl *template.Template
-	if rawTmpl := os.Getenv("KAFKA_TEMPLATE"); rawTmpl != "" {
-		tmpl, err = template.New("kafka").Parse(rawTmpl)
-		if err != nil {
-			return nil, errorf("Couldn't parse Kafka message template. %v", err)
-		}
-	}
-
-	var schema *avro.Schema
-	if rawSchema := os.Getenv("KAFKA_AVRO_SCHEMA"); rawSchema != "" {
-		schema, err := avro.ParseSchema(rawSchema)
-		if err != nil {
-			return nil, errorf("Couldn't parse Avro schema. %v", err)
-		}
-		if tmpl == nil {
-			return nil, errorf("You must set KAFKA_TEMPLATE if you use a schema %v", err)
-		}
-	}
+  schema, err := avro.ParseSchema(messageSchema)
+  if err != nil {
+    return nil, errorf("The schema could not be parsed")
+  }
 
 	if os.Getenv("DEBUG") != "" {
 		log.Printf("Starting Kafka producer for address: %s, topic: %s.\n", brokers, topic)
@@ -95,10 +89,9 @@ func NewKafkaAvroAdapter(route *router.Route) (router.LogAdapter, error) {
 		route:     route,
 		brokers:   brokers,
 		topic:     topic,
-		schemaUrl: schemaUrl,
+    registry:  registry,
+    writer:    writer,
 		producer:  producer,
-		tmpl:      tmpl,
-		schema:    schema,
 	}, nil
 }
 
@@ -138,21 +131,19 @@ func newConfig() *sarama.Config {
 
 func (a *KafkaAvroAdapter) formatMessage(message *router.Message) (*sarama.ProducerMessage, error) {
 	var encoder sarama.Encoder
-	if a.tmpl != nil {
-		var w bytes.Buffer
-		if err := a.tmpl.Execute(&w, message); err != nil {
-			return nil, err
-		}
-		if a.schema != nil {
-			var data interface{}
-			if err := json.Unmarshal([]w.Bytes(), &data); err != nil {
-				data = w.Bytes()
-			}
-		}
-		encoder = sarama.ByteEncoder(w.Bytes())
-	} else {
-		encoder = sarama.StringEncoder(message.Data)
-	}
+
+  record := avro.NewGenericRecord(messageSchema)
+  record.Set("timestamp", message.Time)
+  record.Set("container_name", message.Container.Name)
+  record.Set("source", message.Source)
+  record.Set("line", message.Data)
+
+  var b []byte, err = a.registry.Encode(record)
+  if err != nil {
+    return nil, err
+  }
+
+  encoder = sarama.ByteEncoder(b)
 
 	return &sarama.ProducerMessage{
 		Topic: a.topic,
