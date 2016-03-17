@@ -134,7 +134,7 @@ func (a *KafkaAvroAdapter) formatMessage(message *router.Message) (*sarama.Produ
 	var encoder sarama.Encoder
 
 	record := avro.NewGenericRecord(a.schema)
-	record.Set("timestamp", message.Time)
+	record.Set("timestamp", message.Time.String())
 	record.Set("container_name", message.Container.Name)
 	record.Set("source", message.Source)
 	record.Set("line", message.Data)
@@ -143,6 +143,7 @@ func (a *KafkaAvroAdapter) formatMessage(message *router.Message) (*sarama.Produ
 	if err != nil {
 		return nil, err
 	}
+	debug(b)
 
 	encoder = sarama.ByteEncoder(b)
 
@@ -187,4 +188,10 @@ func errorf(format string, a ...interface{}) (err error) {
 		fmt.Println(err.Error())
 	}
 	return
+}
+
+func debug(v ...interface{}) {
+	if os.Getenv("DEBUG") != "" {
+		log.Println(v...)
+	}
 }
