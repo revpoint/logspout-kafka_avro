@@ -33,6 +33,7 @@ type KafkaAvroAdapter struct {
 	route    *router.Route
 	brokers  []string
 	topic    string
+	schema   *avro.Schema
 	registry *kafkaavro.KafkaAvroEncoder
 	producer *sarama.AsyncProducer
 }
@@ -69,7 +70,7 @@ func NewKafkaAvroAdapter(route *router.Route) (router.LogAdapter, error) {
 	if err != nil {
 		retries = 3
 	}
-	var producer sarama.AsyncProducer
+	var producer *sarama.AsyncProducer
 	for i := 0; i < retries; i++ {
 		producer, err = sarama.NewAsyncProducer(brokers, newConfig())
 		if err != nil {
@@ -89,7 +90,7 @@ func NewKafkaAvroAdapter(route *router.Route) (router.LogAdapter, error) {
 		brokers:  brokers,
 		topic:    topic,
 		registry: registry,
-		writer:   writer,
+		schema:   schema,
 		producer: producer,
 	}, nil
 }
@@ -131,7 +132,7 @@ func newConfig() *sarama.Config {
 func (a *KafkaAvroAdapter) formatMessage(message *router.Message) (*sarama.ProducerMessage, error) {
 	var encoder sarama.Encoder
 
-	record := avro.NewGenericRecord(messageSchema)
+	record := avro.NewGenericRecord(a.schema)
 	record.Set("timestamp", message.Time)
 	record.Set("container_name", message.Container.Name)
 	record.Set("source", message.Source)
