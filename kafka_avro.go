@@ -12,6 +12,7 @@ import (
 	kafkaavro "github.com/elodina/go-kafka-avro"
 	"github.com/gliderlabs/logspout/router"
 	"gopkg.in/Shopify/sarama.v1"
+	"github.com/fsouza/go-dockerclient"
 )
 
 var messageSchema = `{
@@ -132,10 +133,19 @@ func newConfig() *sarama.Config {
 
 func (a *KafkaAvroAdapter) formatMessage(message *router.Message) (*sarama.ProducerMessage, error) {
 	var encoder sarama.Encoder
+	var containerName string
+	var env docker.Env = message.Container.Config.Env
+
+	if env != nil {
+		containerName = env.Get("MARATHON_APP_DOCKER_IMAGE")
+	}
+	if containerName == "" {
+		containerName = message.Container.Name
+	}
 
 	record := avro.NewGenericRecord(a.schema)
 	record.Set("timestamp", message.Time.String())
-	record.Set("container_name", message.Container.Name)
+	record.Set("container_name", containerName)
 	record.Set("source", message.Source)
 	record.Set("line", message.Data)
 
