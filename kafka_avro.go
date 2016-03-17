@@ -33,9 +33,9 @@ type KafkaAvroAdapter struct {
 	route    *router.Route
 	brokers  []string
 	topic    string
-	schema   *avro.Schema
+	schema   avro.Schema
 	registry *kafkaavro.KafkaAvroEncoder
-	producer *sarama.AsyncProducer
+	producer sarama.AsyncProducer
 }
 
 func NewKafkaAvroAdapter(route *router.Route) (router.LogAdapter, error) {
@@ -56,6 +56,7 @@ func NewKafkaAvroAdapter(route *router.Route) (router.LogAdapter, error) {
 
 	registry := kafkaavro.NewKafkaAvroEncoder(schemaUrl)
 
+	var schema avro.Schema
 	schema, err := avro.ParseSchema(messageSchema)
 	if err != nil {
 		return nil, errorf("The schema could not be parsed")
@@ -70,7 +71,7 @@ func NewKafkaAvroAdapter(route *router.Route) (router.LogAdapter, error) {
 	if err != nil {
 		retries = 3
 	}
-	var producer *sarama.AsyncProducer
+	var producer sarama.AsyncProducer
 	for i := 0; i < retries; i++ {
 		producer, err = sarama.NewAsyncProducer(brokers, newConfig())
 		if err != nil {
