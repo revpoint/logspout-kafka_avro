@@ -137,7 +137,7 @@ func (a *KafkaAvroAdapter) formatMessage(message *router.Message) (*sarama.Produ
 	var env docker.Env = message.Container.Config.Env
 
 	if env != nil {
-		containerName = env.Get("MARATHON_APP_DOCKER_IMAGE")
+		containerName = env.Get("MARATHON_APP_ID")
 	}
 	if containerName == "" {
 		containerName = message.Container.Name
