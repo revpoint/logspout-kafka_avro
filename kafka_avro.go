@@ -3,6 +3,7 @@ package kafka_avro
 import (
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"strconv"
 	"strings"
