@@ -21,6 +21,7 @@ var messageSchema = `{
   "fields": [
     {"name": "timestamp", "type": "string"},
     {"name": "container_name", "type": "string"},
+    {"name": "host", "type": "string"},
     {"name": "source", "type": "string"},
     {"name": "line", "type": "string"}
   ]
@@ -142,10 +143,15 @@ func (a *KafkaAvroAdapter) formatMessage(message *router.Message) (*sarama.Produ
 	if containerName == "" {
 		containerName = message.Container.Name
 	}
+	host := env.Get("HOST")
+	if host == "" {
+		host = getLocalIP()
+	}
 
 	record := avro.NewGenericRecord(a.schema)
 	record.Set("timestamp", message.Time.String())
 	record.Set("container_name", containerName)
+	record.Set("host", host)
 	record.Set("source", message.Source)
 	record.Set("line", message.Data)
 
@@ -190,6 +196,22 @@ func readSchemaRegistryUrl(options map[string]string) string {
 		url = options["schema_registry_url"]
 	}
 	return url
+}
+
+func getLocalIP() string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return ""
+	}
+	for _, address := range addrs {
+		// check the address type and if it is not a loopback the display it
+		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String()
+			}
+		}
+	}
+	return ""
 }
 
 func errorf(format string, a ...interface{}) (err error) {
