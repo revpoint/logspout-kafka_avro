@@ -14,6 +14,7 @@ import (
 	"github.com/gliderlabs/logspout/router"
 	"gopkg.in/Shopify/sarama.v1"
 	"github.com/fsouza/go-dockerclient"
+	"github.com/joeshaw/iso8601"
 )
 
 var messageSchema = `{
@@ -150,7 +151,7 @@ func (a *KafkaAvroAdapter) formatMessage(message *router.Message) (*sarama.Produ
 	}
 
 	record := avro.NewGenericRecord(a.schema)
-	record.Set("timestamp", message.Time.String())
+	record.Set("timestamp", string(iso8601.Time(message.Time)))
 	record.Set("container_name", containerName)
 	record.Set("host", host)
 	record.Set("source", message.Source)
