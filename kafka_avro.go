@@ -1,6 +1,7 @@
 package kafka_avro
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net"
