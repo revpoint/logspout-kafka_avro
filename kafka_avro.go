@@ -151,7 +151,8 @@ func (a *KafkaAvroAdapter) formatMessage(message *router.Message) (*sarama.Produ
 	}
 
 	record := avro.NewGenericRecord(a.schema)
-	record.Set("timestamp", iso8601.Time(message.Time).String())
+	time, _ := json.Marshal(iso8601.Time(message.Time))
+	record.Set("timestamp", string(time))
 	record.Set("container_name", containerName)
 	record.Set("host", host)
 	record.Set("source", message.Source)
