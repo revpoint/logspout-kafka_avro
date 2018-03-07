@@ -1,7 +1,6 @@
 package kafka_avro
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"net"
@@ -15,7 +14,6 @@ import (
 	"github.com/gliderlabs/logspout/router"
 	"gopkg.in/Shopify/sarama.v1"
 	"github.com/fsouza/go-dockerclient"
-	"github.com/joeshaw/iso8601"
 )
 
 var messageSchema = `{
@@ -137,25 +135,11 @@ func newConfig() *sarama.Config {
 
 func (a *KafkaAvroAdapter) formatMessage(message *router.Message) (*sarama.ProducerMessage, error) {
 	var encoder sarama.Encoder
-	var containerName string
-	var env docker.Env = message.Container.Config.Env
-
-	if env != nil {
-		containerName = env.Get("MARATHON_APP_ID")
-	}
-	if containerName == "" {
-		containerName = message.Container.Name
-	}
-	host := env.Get("HOST")
-	if host == "" {
-		host = getLocalIP()
-	}
 
 	record := avro.NewGenericRecord(a.schema)
-	time, _ := json.Marshal(iso8601.Time(message.Time))
-	record.Set("timestamp", string(time))
-	record.Set("container_name", containerName)
-	record.Set("host", host)
+	record.Set("timestamp", getTimestamp(message))
+	record.Set("container_name", getContainerName(message))
+	record.Set("host", getHost(message))
 	record.Set("source", message.Source)
 	record.Set("line", message.Data)
 
@@ -200,6 +184,35 @@ func readSchemaRegistryUrl(options map[string]string) string {
 		url = options["schema_registry_url"]
 	}
 	return url
+}
+
+func getTimestamp(message *router.Message) string {
+	return message.Time.Format(time.RFC3339)
+}
+
+func getContainerName(message *router.Message) string {
+	var env docker.Env = message.Container.Config.Env
+	var containerName string
+
+	if env != nil {
+		containerName = env.Get("MARATHON_APP_ID")
+	}
+	if containerName == "" {
+		containerName = message.Container.Name
+	}
+	return containerName
+}
+
+func getHost(message *router.Message) string {
+	var env docker.Env = message.Container.Config.Env
+	host, err := os.Hostname()
+	if err != nil {
+		host := env.Get("HOST")
+		if host == "" {
+			host = getLocalIP()
+		}
+	}
+	return host
 }
 
 func getLocalIP() string {
